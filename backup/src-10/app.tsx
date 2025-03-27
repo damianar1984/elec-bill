@@ -1,0 +1,91 @@
+import { render } from 'preact'
+import './index.css'
+import { supabase } from './lib/supabase'
+import { useEffect, useState } from 'preact/hooks'
+
+interface TenantResponse {
+  mieter: string[]
+}
+
+export function App() {
+  const [tenants, setTenants] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedTenant, setSelectedTenant] = useState<string>('')
+
+  useEffect(() => {
+    fetchTenants()
+  }, [])
+
+  async function fetchTenants() {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const { data, error } = await supabase.functions.invoke<TenantResponse>('read-tenant-sheet')
+      
+      if (error) throw error
+      
+      if (data?.mieter) {
+        setTenants(data.mieter)
+      } else {
+        throw new Error('Keine Mieterdaten verfügbar')
+      }
+    } catch (error) {
+      console.error('Error fetching tenants:', error)
+      setError('Fehler beim Laden der Mieter. Bitte versuchen Sie es später erneut.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 sm:p-6 md:p-8">
+      <div className="container mx-auto max-w-3xl">
+        <h1 className="mb-8 text-2xl font-bold text-gray-800 sm:text-3xl md:text-4xl">
+          Mieterverwaltung
+        </h1>
+        
+        <div className="rounded-xl bg-white p-6 shadow-lg transition-shadow hover:shadow-xl">
+          <div className="mb-4">
+            <label 
+              htmlFor="tenant" 
+              className="mb-2 block text-sm font-semibold text-gray-700"
+            >
+              Mieter auswählen
+            </label>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-6 w-6 animate-spin rounded-full border-3 border-gray-300 border-t-blue-600"></div>
+                <span className="ml-3 text-sm text-gray-600">Lade Mieter...</span>
+              </div>
+            ) : error ? (
+              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+                <div className="flex items-center">
+                  <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </div>
+              </div>
+            ) : (
+              <select
+                id="tenant"
+                value={selectedTenant}
+                onChange={(e) => setSelectedTenant((e.target as HTMLSelectElement).value)}
+                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
+              >
+                <option value="">Bitte wählen Sie einen Mieter</option>
+                {tenants.map((tenant, index) => (
+                  <option key={index} value={tenant}>
+                    {tenant}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
