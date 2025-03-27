@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'preact/hooks';
+import { ChangeEvent } from 'preact/compat'; // Typen aus preact/compat importieren
 import flatpickr from 'flatpickr';
 import { German } from 'flatpickr/dist/l10n/de.js';
 
@@ -21,7 +22,7 @@ export function ZaehlerstandErfassen() {
   const [neuerZaehlerstand, setNeuerZaehlerstand] = useState<string>('');
   const [strompreis, setStrompreis] = useState<string>('');
   const [grundpreis, setGrundpreis] = useState<string>('');
-  const [photo, setPhoto] = useState<File | null>(null); // Neuer State für das Foto
+  const [photo, setPhoto] = useState<File | null>(null);
   const [sendInvoice, setSendInvoice] = useState<boolean>(false);
   const [speicherStatus, setSpeicherStatus] = useState<string | null>(null);
   const [datum, setDatum] = useState<string>(() => {
@@ -40,7 +41,7 @@ export function ZaehlerstandErfassen() {
         locale: German,
         maxDate: 'today',
         defaultDate: datum,
-        onChange: (selectedDates, dateStr) => {
+        onChange: (_, dateStr) => {
           setDatum(dateStr);
         },
       });
@@ -131,7 +132,6 @@ export function ZaehlerstandErfassen() {
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (!anonKey) throw new Error('Supabase Anonymous-Key ist nicht definiert.');
 
-      // Zählerstand erfassen (immer mit write-meter-reading)
       const writeResponse = await fetch('https://kfosgimkfydlbranmqvv.supabase.co/functions/v1/write-meter-reading', {
         method: 'POST',
         headers: {
@@ -144,7 +144,7 @@ export function ZaehlerstandErfassen() {
           strompreis: strompreis.replace(',', '.'),
           grundpreis: grundpreis.replace(',', '.'),
           datum,
-          sendInvoice: false, // Nur Erfassen, keine Rechnung hier
+          sendInvoice: false,
         }),
       });
 
@@ -156,7 +156,6 @@ export function ZaehlerstandErfassen() {
       const writeResult = await writeResponse.json();
       setSpeicherStatus(writeResult.message);
 
-      // Wenn Rechnung gesendet werden soll, generate-invoice mit Foto aufrufen
       if (sendInvoice) {
         const formData = new FormData();
         formData.append('mieter', ausgewaehlterMieter);
@@ -182,7 +181,7 @@ export function ZaehlerstandErfassen() {
 
       await holeLetzterZaehlerstand();
       setNeuerZaehlerstand('');
-      setPhoto(null); // Foto zurücksetzen
+      setPhoto(null);
     } catch (error: any) {
       console.error('Fehler beim Erfassen des Zählerstands:', error.message);
       setSpeicherStatus(`Fehler: ${error.message}`);
@@ -258,7 +257,10 @@ export function ZaehlerstandErfassen() {
         <input
           id="neuerZaehlerstand"
           value={neuerZaehlerstand}
-          onChange={(e) => setNeuerZaehlerstand(e.target.value.replace(/[^0-9,]/g, ''))}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            const target = e.target as HTMLInputElement; // Typ explizit setzen
+            setNeuerZaehlerstand(target.value.replace(/[^0-9,]/g, ''));
+          }}
           placeholder="z.B. 564,50"
           className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
         />
@@ -272,8 +274,9 @@ export function ZaehlerstandErfassen() {
           <input
             id="strompreis"
             value={strompreis ? `${strompreis} €` : 'Laden...'}
-            onChange={(e) => {
-              const value = e.target.value.replace(' €', '').replace(/[^0-9,]/g, '');
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const target = e.target as HTMLInputElement; // Typ explizit setzen
+              const value = target.value.replace(' €', '').replace(/[^0-9,]/g, '');
               setStrompreis(value);
             }}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
@@ -286,8 +289,9 @@ export function ZaehlerstandErfassen() {
           <input
             id="grundpreis"
             value={grundpreis ? `${grundpreis} €` : 'Laden...'}
-            onChange={(e) => {
-              const value = e.target.value.replace(' €', '').replace(/[^0-9,]/g, '');
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const target = e.target as HTMLInputElement; // Typ explizit setzen
+              const value = target.value.replace(' €', '').replace(/[^0-9,]/g, '');
               setGrundpreis(value);
             }}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"

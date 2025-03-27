@@ -12,7 +12,7 @@ interface HistoryData {
   strompreis: number;
   grundpreis: number;
   pdfId: string;
-  photoId?: string;
+  photoId?: string; // Optional, kann undefined sein
 }
 
 export function Abrechnungshistorie() {
@@ -56,6 +56,7 @@ export function Abrechnungshistorie() {
         throw new Error('Erwartetes Datenformat ist kein Array');
       }
 
+      // Fehler 1: findLastIndex wird jetzt von ES2023 unterstützt
       const lastEntryIndex = rawData.findLastIndex((row: any[]) => row[0] && row[0].trim() !== '');
       const relevantData = lastEntryIndex >= 0 ? rawData.slice(0, lastEntryIndex + 1) : [];
 
@@ -96,7 +97,7 @@ export function Abrechnungshistorie() {
             strompreis: strompreisNum,
             grundpreis: grundpreisNum,
             pdfId: pdfId || '',
-            photoId: photoId || '',
+            photoId: photoId, // Kann undefined sein
           };
         });
 
@@ -294,8 +295,9 @@ export function Abrechnungshistorie() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                     {item.photoId && (
+                      // Fehler 2: photoId wird hier geprüft, bevor zeigeFotoVorschau aufgerufen wird
                       <button
-                        onClick={() => zeigeFotoVorschau(item.photoId)}
+                        onClick={() => zeigeFotoVorschau(item.photoId!)} // ! ist sicher, da wir mit item.photoId prüfen
                         className="mr-2 text-gray-600 hover:text-blue-600 cursor-pointer"
                         title="Foto anzeigen"
                       >
