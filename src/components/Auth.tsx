@@ -13,7 +13,7 @@ export function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
-          scopes: 'email',
+          scopes: 'Files.ReadWrite Mail.Send User.Read offline_access',
           redirectTo: 'https://damianar1984.github.io/elec-bill/' // Produktions-URL
         }
       });
