@@ -1,15 +1,121 @@
 import { render } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import './index.css';
+import { supabase } from './lib/supabase';
+import { Auth } from './components/Auth';
 import { ZaehlerstandErfassen } from './components/ZaehlerstandErfassen';
 import { CreateTenantModal } from './components/CreateTenantModal';
 import { Abrechnungshistorie } from './components/Abrechnungshistorie';
 import { Verbrauchsanalyse } from './components/Verbrauchsanalyse';
+import type { User } from '@supabase/supabase-js';
 
 export function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [activeTab, setActiveTab] = useState('zaehlerstand');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkAuthAndAuthorization = async () => {
+      try {
+        console.log('Checking session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Session error:', sessionError.message);
+          throw sessionError;
+        }
+        console.log('Session:', session);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser && session) {
+          console.log('User found, checking authorization with token:', session.access_token);
+          const response = await fetch('https://kfosgimkfydlbranmqvv.supabase.co/functions/v1/check-authorization', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Authorization check failed: ${response.status} - ${errorText}`);
+          }
+          const result = await response.json();
+          console.log('Authorization result:', result);
+          setIsAuthorized(result.authorized === true);
+        } else {
+          console.log('No user or session found');
+        }
+      } catch (error) {
+        console.error('Error checking authorization:', error);
+        setIsAuthorized(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthAndAuthorization();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser && session) {
+        try {
+          console.log('Auth state changed, checking authorization with token:', session.access_token);
+          const response = await fetch('https://kfosgimkfydlbranmqvv.supabase.co/functions/v1/check-authorization', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Authorization check failed: ${response.status} - ${errorText}`);
+          }
+          const result = await response.json();
+          console.log('Authorization result:', result);
+          setIsAuthorized(result.authorized === true);
+        } catch (error) {
+          console.error('Error checking authorization:', error);
+          setIsAuthorized(false);
+        }
+      } else {
+        console.log('Auth state changed: No user or session');
+        setIsAuthorized(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  console.log('User:', user, 'IsAuthorized:', isAuthorized);
+
+  if (!user) {
+    return <Auth />;
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
+        <div className="text-center text-red-600">Zugriff verweigert</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
@@ -19,15 +125,12 @@ export function App() {
           <div className="flex h-16 justify-between">
             <div className="flex">
               <div className="flex flex-shrink-0 items-center">
-                {/* Logo placeholder */}
                 <div className="h-8 w-8 rounded bg-blue-600"></div>
                 <span className="ml-2 font-sans text-2xl font-bold tracking-tight text-gray-900 antialiased">
                   Stromabrechnung
                 </span>
               </div>
             </div>
-
-            {/* User Menu */}
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setIsCreateModalOpen(true)}
@@ -49,7 +152,6 @@ export function App() {
                 </svg>
                 Mieter anlegen
               </button>
-
               <div className="relative ml-3">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -66,27 +168,17 @@ export function App() {
                     </svg>
                   </div>
                 </button>
-
                 {isUserMenuOpen && (
                   <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5">
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Profil
-                    </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Einstellungen
-                    </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-200">
+                      {user.email}
+                    </div>
+                    <button
+                      onClick={handleSignOut}
+                      className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100"
                     >
                       Abmelden
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
